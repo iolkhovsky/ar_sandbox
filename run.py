@@ -41,8 +41,8 @@ def run(args):
         camera_y_fov=fov_y,
         render_x_res=x_res,
         render_y_res=y_res,
-        light_rgb=(1., 1., 1.),
-        light_intensity=30.,
+        light_rgb=(0.1, 1.0, 0.1),
+        light_intensity=50.,
         transform=initial_transform,
     )
 
@@ -74,6 +74,7 @@ def run(args):
                 ok, rvecs, tvecs = cv2.solvePnP(objp, corners_fine, camera_matrix, dist_coeff)
                 if ok:
                     rvecs[1][0] *= -1
+                    rvecs[2][0] *= -1
                     rotation_matrix, _ = cv2.Rodrigues(rvecs)
                     transform = np.eye(4)
                     transform[:3, :3] = rotation_matrix
@@ -82,6 +83,7 @@ def run(args):
                     transform[0, -1] = tvecs[0]
             if transform is not None:
                 render, mask = renderer.render(transform)
+                render = cv2.cvtColor(render, cv2.COLOR_RGB2BGR)
                 vis = fuse_images(src=vis, subst_img=render, subst_mask=mask)
 
         cv2.imshow('Stream', vis)
