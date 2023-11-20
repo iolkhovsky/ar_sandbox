@@ -28,19 +28,19 @@ def parse_args():
         help='Camera Y resolution',
     )
     parser.add_argument(
-        '--rotation_speed_x', type=float, default=0.,
+        '--rotation_speed_x', type=float, default=15,
         help='Rotation speed around X-axis (deg/s)'
     )
     parser.add_argument(
-        '--rotation_speed_y', type=float, default=0.,
+        '--rotation_speed_y', type=float, default=5,
         help='Rotation speed around Y-axis (deg/s)'
     )
     parser.add_argument(
-        '--rotation_speed_z', type=float, default=0.,
+        '--rotation_speed_z', type=float, default=10.,
         help='Rotation speed around Y-axis (deg/s)'
     )
     parser.add_argument(
-        '--distance', type=float, default=100,
+        '--distance', type=float, default=50,
         help='Distance from the camera (mm)',
     )
     return parser.parse_args()
@@ -52,12 +52,12 @@ def show(args):
         camera_y_fov=np.deg2rad(args.camera_y_fov),
         render_x_res=args.camera_x_res,
         render_y_res=args.camera_y_res,
-        light_rgb=(0.2, 0.2, 1.),
-        light_intensity=500.,
+        light_rgb=(1., 1., 1.),
+        light_intensity=30.,
         transform=make_transform((90, 0, 0), (0, 0, 0)),
     )
 
-    fps = 2.
+    fps = 3.
     diff_scale = 1. / fps
     interval_ms = int(1. / fps)
 
@@ -73,7 +73,7 @@ def show(args):
         y_angle += diff_scale * args.rotation_speed_y
         z_angle += diff_scale * args.rotation_speed_z
 
-        transform = make_transform((x_angle, y_angle, z_angle), (0, 0, distance))
+        transform = make_transform((x_angle, y_angle, z_angle), (0, 0, -distance))
         image, _ = renderer.render(transform)
         cv2.imshow('Model', image)
 

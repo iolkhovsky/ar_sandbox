@@ -18,9 +18,9 @@ class ObjectRenderer:
         light_intensity: float = 1.,
         transform: np.ndarray = np.eye(4),
     ):
-        _trimesh = trimesh.load(path)
+        self._trimesh = trimesh.load(path)
         if transform is not None:
-            _trimesh.apply_transform(transform)
+            self._trimesh.apply_transform(transform)
 
         self._camera = pyrender.PerspectiveCamera(
             yfov=camera_y_fov,
@@ -31,14 +31,19 @@ class ObjectRenderer:
             intensity=light_intensity,
         )
         self._renderer = pyrender.OffscreenRenderer(render_x_res, render_y_res)
-        self._mesh = pyrender.Mesh.from_trimesh(_trimesh)
 
     @profile('Renderer')
     def render(self, transform: np.ndarray = np.eye(4)):
+        trimesh = self._trimesh.copy()
+        trimesh.apply_transform(transform)
+
         scene = pyrender.Scene()
-        scene.add(self._mesh)
-        scene.add(self._camera, pose=transform)
-        scene.add(self._light, pose=transform)
+        mesh = pyrender.Mesh.from_trimesh(trimesh)
+        scene.add(mesh)
+    
+        scene.add(self._camera, pose=np.eye(4))
+        scene.add(self._light, pose=np.eye(4))
+
         flags = RenderFlags.RGBA | RenderFlags.SHADOWS_DIRECTIONAL
         image, depth = self._renderer.render(scene, flags)
         mask = depth > 0
