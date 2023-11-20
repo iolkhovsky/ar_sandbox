@@ -1,0 +1,11 @@
+source: 0
+intrinsics:
+  path: config/intrinsics.npz
+  pixel_size_mm: 1.3e-3
+model:
+  path: models/gear.obj
+  transform: [[3, 0, 0, 0], [0, 0, -3, 0], [0, 3, 0, 0], [0, 0, 0, 1]]
+pattern:
+  x_size: 6
+  y_size: 9
+  cell_size_mm: 8
