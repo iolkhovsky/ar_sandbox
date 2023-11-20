@@ -9,3 +9,7 @@ pattern:
   x_size: 6
   y_size: 9
   cell_size_mm: 8
+output:
+  enable: True
+  path: record.mp4
+  fps: 3

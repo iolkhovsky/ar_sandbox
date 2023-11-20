@@ -6,7 +6,7 @@ import os
 import yaml
 
 from renderer import ObjectRenderer
-from utils import profile, fuse_images, make_transform
+from utils import profile, fuse_images
 
 
 def parse_args():
@@ -50,47 +50,70 @@ def run(args):
     objp[:, :2] = np.mgrid[0:pattern_size[0], 0:pattern_size[1]].T.reshape(-1,2)
     objp[:, 0] -= 0.5 * (pattern_size[0] - 1)
     objp[:, 1] -= 0.5 * (pattern_size[1] - 1)
-
     objp[:, :2] *= cell_size_mm
 
+    writer = None
+    if config['output']['enable']:
+        writer = cv2.VideoWriter(
+            config['output']['path'],
+            cv2.VideoWriter_fourcc(*'mp4v'),
+            config['output']['fps'],
+            (x_res, y_res)
+        )
+
     while True:
-        ok, img = cap.read()
-        if not ok:
-            break
-
-        vis = img.copy()
-
+        print('-' * 30)
         with profile('Main loop'):
-            transform = None
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            ok, corners = cv2.findChessboardCorners(
-                gray, pattern_size, cv2.CALIB_CB_FAST_CHECK
-            )
-            if ok:
-                criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-                corners_fine = cv2.cornerSubPix(
-                    gray, corners, (11, 11), (-1, -1), criteria
-                )
-                ok, rvecs, tvecs = cv2.solvePnP(objp, corners_fine, camera_matrix, dist_coeff)
-                if ok:
-                    rvecs[1][0] *= -1
-                    rvecs[2][0] *= -1
-                    rotation_matrix, _ = cv2.Rodrigues(rvecs)
-                    transform = np.eye(4)
-                    transform[:3, :3] = rotation_matrix
-                    transform[2, -1] = -tvecs[2]
-                    transform[1, -1] = -tvecs[1]
-                    transform[0, -1] = tvecs[0]
-            if transform is not None:
-                render, mask = renderer.render(transform)
-                render = cv2.cvtColor(render, cv2.COLOR_RGB2BGR)
-                vis = fuse_images(src=vis, subst_img=render, subst_mask=mask)
+            with profile('Image capturing'):
+                ok, img = cap.read()
+                if not ok:
+                    break
+                vis = img.copy()
+                transform = None
 
-        cv2.imshow('Stream', vis)
-        if cv2.waitKey(10) & 0xFF==ord('q'):
-            break
+            with profile('Detecting marker'):
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                ok, corners = cv2.findChessboardCorners(
+                    gray, pattern_size, cv2.CALIB_CB_FAST_CHECK
+                )
+                if ok:
+                    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+                    corners_fine = cv2.cornerSubPix(
+                        gray, corners, (11, 11), (-1, -1), criteria
+                    )
+
+            if ok:
+                with profile('Pose estimation'):
+                    ok, rvecs, tvecs = cv2.solvePnP(objp, corners_fine, camera_matrix, dist_coeff)
+                    if ok:
+                        rvecs[1][0] *= -1
+                        rvecs[2][0] *= -1
+                        rotation_matrix, _ = cv2.Rodrigues(rvecs)
+                        transform = np.eye(4)
+                        transform[:3, :3] = rotation_matrix
+                        transform[2, -1] = -tvecs[2]
+                        transform[1, -1] = -tvecs[1]
+                        transform[0, -1] = tvecs[0]
+
+            if transform is not None:
+                with profile('Rendering & fusing'):
+                    render, mask = renderer.render(transform)
+                    render = cv2.cvtColor(render, cv2.COLOR_RGB2BGR)
+                    vis = fuse_images(src=vis, subst_img=render, subst_mask=mask)
+
+            with profile('Visualization'):
+                cv2.imshow('Stream', vis)
+
+            if writer is not None:
+                with profile('Recording'):
+                    writer.write(vis)
+
+            if cv2.waitKey(10) & 0xFF==ord('c'):
+                break
 
     cap.release()
+    if writer is not None:
+        writer.release()
     cv2.destroyAllWindows()
     cv2.waitKey(1)
 
